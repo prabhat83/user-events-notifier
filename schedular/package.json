@@ -1,0 +1,25 @@
+{
+  "name": "schedular",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.mjs",
+  "scripts": {
+    "test": "mocha tests/*.test.mjs",
+    "test:watch": "mocha tests/*.test.mjs --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.970.0",
+    "@aws-sdk/client-sqs": "^3.971.0",
+    "@aws-sdk/lib-dynamodb": "^3.971.0",
+    "luxon": "^3.7.2",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "aws-sdk-client-mock": "^4.1.0",
+    "chai": "^4.3.10",
+    "mocha": "^10.2.0",
+    "sinon": "^17.0.1"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "schedular",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/index.ts",
+  "scripts": {
+    "dev": "tsc -w",
+    "clean": "rm -rf dist/; mkdir dist/",
+    "build": "npm run clean; webpack",
+    "test": "npm run build; mocha tests/",
+    "prepare": "rm ../../schedular/*; cp dist/*.mjs ../../schedular"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^25.0.9",
+    "ts-loader": "^9.5.4",
+    "tslint": "^5.20.1",
+    "tslint-loader": "^3.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.970.0",
+    "@aws-sdk/client-sqs": "^3.971.0",
+    "luxon": "^3.7.2"
+  }
+}
