@@ -87,7 +87,6 @@ async function createUser(event) {
         firstName: { S: body.firstName },
         lastName: { S: body.lastName },
         birthday: { S: body.birthday },
-        birthdayIso: { S: birthday.toISO() },
         timezone: { S: body.timezone },
         createdAt: { S: new Date().toISOString() },
       },
