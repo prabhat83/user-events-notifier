@@ -20,7 +20,7 @@ console.log("REQUEST_BIN_URL:", REQUEST_BIN_URL);
 export const handler = async (event) => {
   for (const record of event) {
     const msg = JSON.parse(record.body);
-    const messageKey = `birthday#${msg.year}`;
+    const messageKey = `${msg.eventType}#${msg.year}`;
 
     try {
       // Record the sent notification to prevent duplicates
@@ -42,14 +42,14 @@ export const handler = async (event) => {
         await sns.send(
           new PublishCommand({
             TopicArn: TOPIC_ARN,
-            Message: `Hey, ${msg.firstName} ${msg.lastName} it’s your birthday`,
+            Message: `Hey, ${msg.firstName} ${msg.lastName} it’s your ${msg.eventType}`,
           }),
         );
       }
 
       if (REQUEST_BIN_URL) {
         await axios.post(REQUEST_BIN_URL, {
-          message: `Hey, ${msg.firstName} ${msg.lastName} it's your birthday`,
+          message: `Hey, ${msg.firstName} ${msg.lastName} it's your ${msg.eventType}`,
         });
       }
     } catch (err) {

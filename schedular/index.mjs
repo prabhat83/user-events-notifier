@@ -11,7 +11,13 @@ const QUEUE_URL = process.env.QUEUE_URL;
 // DynamoDB table to read users from
 const USERS_TABLE = process.env.USERS_TABLE;
 
+const EVENT_TYPE = process.env.EVENT_TYPE || "birthday";
+
 export const handler = async () => {
+  if (EVENT_TYPE !== "birthday" && EVENT_TYPE !== "anniversary") {
+    throw new Error("Unsupported EVENT_TYPE: " + EVENT_TYPE);
+  }
+
   // Scan all users from the DynamoDB table
   // This can be optimized with filters by timezone etc.
   const users = await dynamo.send(
@@ -20,15 +26,17 @@ export const handler = async () => {
     }),
   );
 
-  console.log("Found users with birthdays today:", users.Count);
+  console.log("Number of users:", users.Count);
 
   for (const item of users.Items ?? []) {
     console.log("User:", item.firstName.S, item.lastName.S);
+
     const timezone = item.timezone.S;
-    const birthday = item.birthday.S;
+    let eventDate =
+      EVENT_TYPE === "birthday" ? item.birthday.S : item.anniversary.S;
 
     const now = DateTime.utc().setZone(timezone);
-    const dob = DateTime.fromISO(birthday);
+    const dob = DateTime.fromISO(eventDate);
 
     if (
       now.hour === 9 &&
@@ -45,6 +53,7 @@ export const handler = async () => {
             userId: item.userId.S,
             firstName: item.firstName.S,
             lastName: item.lastName.S,
+            eventType: EVENT_TYPE,
             year: now.year,
           }),
         }),
