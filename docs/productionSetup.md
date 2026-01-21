@@ -82,6 +82,19 @@ aws dynamodb create-table \
   --tags Key=Environment,Value=Production Key=Project,Value=BirthdayNotifier
 ```
 
+```bash
+aws dynamodb update-table \
+  --table-name users \
+  --attribute-definitions AttributeName=timezone,AttributeType=S \
+  --global-secondary-index-updates \
+    '[{
+      "Create": {
+        "IndexName": "timezone-index",
+        "KeySchema": [{"AttributeName":"timezone","KeyType":"HASH"}],
+        "Projection": {"ProjectionType":"ALL"}
+      }
+    }]'
+```
 ### Create Sent Messages Table
 
 ```bash
