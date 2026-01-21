@@ -2,6 +2,7 @@ import { DynamoDB, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { DateTime } from "luxon";
+import { getTimezonesWith9AM } from "./utils.mjs";
 
 const dynamo = DynamoDBDocument.from(new DynamoDB());
 const sqs = new SQSClient({});
@@ -11,12 +12,42 @@ const QUEUE_URL = process.env.QUEUE_URL;
 // DynamoDB table to read users from
 const USERS_TABLE = process.env.USERS_TABLE;
 
+const EVENT_TYPE = process.env.EVENT_TYPE || "birthday";
+
 export const handler = async () => {
-  // Scan all users from the DynamoDB table
-  // This can be optimized with filters by timezone etc.
+  if (EVENT_TYPE !== "birthday" && EVENT_TYPE !== "anniversary") {
+    throw new Error("Unsupported EVENT_TYPE: " + EVENT_TYPE);
+  }
+
+  const timezoneWith9AM = getTimezonesWith9AM();
+  console.log(
+    `Timezones with 9 AM now (${timezoneWith9AM.length}):`,
+    JSON.stringify(timezoneWith9AM, null, 2),
+  );
+
+  const timezoneList = timezoneWith9AM.map((tz) => tz.timezone);
+
+  if (timezoneList.length === 0) {
+    console.log("No timezones with 9:00 AM right now, skipping");
+    return;
+  }
+
+  // Build filter expression for DynamoDB scan - only query users in timezones with 9AM
+  const filterExpression = timezoneList
+    .map((_, index) => `timezone = :tz${index}`)
+    .join(" OR ");
+
+  const expressionAttributeValues = {};
+  timezoneList.forEach((tz, index) => {
+    expressionAttributeValues[`:tz${index}`] = { S: tz };
+  });
+
+  // Scan users filtered by timezones with 9:00 AM
   const users = await dynamo.send(
     new ScanCommand({
       TableName: USERS_TABLE,
+      FilterExpression: filterExpression,
+      ExpressionAttributeValues: expressionAttributeValues,
     }),
   );
 
@@ -24,11 +55,13 @@ export const handler = async () => {
 
   for (const item of users.Items ?? []) {
     console.log("User:", item.firstName.S, item.lastName.S);
+
     const timezone = item.timezone.S;
-    const birthday = item.birthday.S;
+    let eventDate =
+      EVENT_TYPE === "birthday" ? item.birthday.S : item.anniversary.S;
 
     const now = DateTime.utc().setZone(timezone);
-    const dob = DateTime.fromISO(birthday);
+    const dob = DateTime.fromISO(eventDate);
 
     if (
       now.hour === 9 &&
@@ -45,6 +78,7 @@ export const handler = async () => {
             userId: item.userId.S,
             firstName: item.firstName.S,
             lastName: item.lastName.S,
+            eventType: EVENT_TYPE,
             year: now.year,
           }),
         }),
