@@ -25,31 +25,29 @@ export const handler = async () => {
     JSON.stringify(timezoneWith9AM, null, 2),
   );
 
-  const timezoneList = timezoneWith9AM.map((tz) => tz.timezone);
-
-  if (timezoneList.length === 0) {
+  if (timezoneWith9AM.length === 0) {
     console.log("No timezones with 9:00 AM right now, skipping");
     return;
   }
 
-  // Build filter expression for DynamoDB scan - only query users in timezones with 9AM
-  const filterExpression = timezoneList
-    .map((_, index) => `timezone = :tz${index}`)
-    .join(" OR ");
-
-  const expressionAttributeValues = {};
-  timezoneList.forEach((tz, index) => {
-    expressionAttributeValues[`:tz${index}`] = { S: tz };
-  });
-
-  // Scan users filtered by timezones with 9:00 AM
-  const users = await dynamo.send(
-    new ScanCommand({
-      TableName: USERS_TABLE,
-      FilterExpression: filterExpression,
-      ExpressionAttributeValues: expressionAttributeValues,
-    }),
+  // Query each timezone in parallel
+  const queryPromises = timezoneWith9AM.map((tz) =>
+    dynamo.send(
+      new QueryCommand({
+        TableName: USERS_TABLE,
+        IndexName: "timezone-index",
+        KeyConditionExpression: "timezone = :tz",
+        ExpressionAttributeValues: {
+          ":tz": { S: tz.timezone },
+        },
+      }),
+    ),
   );
+
+  const results = await Promise.all(queryPromises);
+
+  // Combine all users from all timezones
+  const users = results.flatMap((result) => result.Items ?? []);
 
   console.log("Number of Users to process:", users.Count);
 
