@@ -152,15 +152,20 @@ e.g. `https://requestbin.example.com/abc123`
 
 ```
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "VisualEditor0",
-            "Effect": "Allow",
-            "Action": "dynamodb:Scan",
-            "Resource": "arn:aws:dynamodb:*:*:table/users"
-        }
-    ]
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "VisualEditor0",
+			"Effect": "Allow",
+			"Action": [
+				"dynamodb:Query"
+			],
+			"Resource": [
+				"arn:aws:dynamodb:ap-southeast-1:215151307926:table/users",
+				"arn:aws:dynamodb:ap-southeast-1:215151307926:table/users/index/timezone-index"
+			]
+		}
+	]
 }
 ```
 
