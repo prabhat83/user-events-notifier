@@ -2,6 +2,7 @@ import { DynamoDB, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { DateTime } from "luxon";
+import { getTimezonesWith9AM } from "./utils.mjs";
 
 const dynamo = DynamoDBDocument.from(new DynamoDB());
 const sqs = new SQSClient({});
@@ -18,11 +19,35 @@ export const handler = async () => {
     throw new Error("Unsupported EVENT_TYPE: " + EVENT_TYPE);
   }
 
-  // Scan all users from the DynamoDB table
-  // This can be optimized with filters by timezone etc.
+  const timezoneWith9AM = getTimezonesWith9AM();
+  console.log(
+    `Timezones with 9 AM now (${timezoneWith9AM.length}):`,
+    JSON.stringify(timezoneWith9AM, null, 2),
+  );
+
+  const timezoneList = timezoneWith9AM.map((tz) => tz.timezone);
+
+  if (timezoneList.length === 0) {
+    console.log("No timezones with 9:00 AM right now, skipping");
+    return;
+  }
+
+  // Build filter expression for DynamoDB scan - only query users in timezones with 9AM
+  const filterExpression = timezoneList
+    .map((_, index) => `timezone = :tz${index}`)
+    .join(" OR ");
+
+  const expressionAttributeValues = {};
+  timezoneList.forEach((tz, index) => {
+    expressionAttributeValues[`:tz${index}`] = { S: tz };
+  });
+
+  // Scan users filtered by timezones with 9:00 AM
   const users = await dynamo.send(
     new ScanCommand({
       TableName: USERS_TABLE,
+      FilterExpression: filterExpression,
+      ExpressionAttributeValues: expressionAttributeValues,
     }),
   );
 
