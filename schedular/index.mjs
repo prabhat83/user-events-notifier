@@ -20,7 +20,7 @@ export const handler = async () => {
     }),
   );
 
-  console.log("Found users with birthdays today:", users.Count);
+  console.log("Number of Users to process:", users.Count);
 
   for (const item of users.Items ?? []) {
     console.log("User:", item.firstName.S, item.lastName.S);
