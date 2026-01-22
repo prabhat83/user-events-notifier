@@ -1,4 +1,4 @@
-import { DynamoDB, ScanCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDB, QueryCommand } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { DateTime } from "luxon";
@@ -30,43 +30,46 @@ export const handler = async () => {
     return;
   }
 
-  // Query each timezone in parallel
-  const queryPromises = timezoneWith9AM.map((tz) =>
-    dynamo.send(
-      new QueryCommand({
-        TableName: USERS_TABLE,
-        IndexName: "timezone-index",
-        KeyConditionExpression: "timezone = :tz",
-        ExpressionAttributeValues: {
-          ":tz": { S: tz.timezone },
-        },
-      }),
-    ),
-  );
+  try {
+    // Query each timezone in parallel
+    const queryPromises = timezoneWith9AM.map((tz) =>
+      dynamo.send(
+        new QueryCommand({
+          TableName: USERS_TABLE,
+          IndexName: "timezone-index",
+          KeyConditionExpression: "#tz = :tz",
+          ExpressionAttributeNames: {
+            "#tz": "timezone",
+          },
+          ExpressionAttributeValues: {
+            ":tz": { S: tz.timezone },
+          },
+        }),
+      ),
+    );
 
-  const results = await Promise.all(queryPromises);
+    const results = await Promise.all(queryPromises);
 
-  // Combine all users from all timezones
-  const users = results.flatMap((result) => result.Items ?? []);
+    // Combine all users from all timezones
+    const users = results.flatMap((result) => result.Items ?? []);
 
-  console.log("Number of Users to process:", users.Count);
+    // Only send to users with birthdays TODAY
+    const matchingUsers = users.filter((item) => {
+      const timezone = item.timezone.S;
+      const birthday = item.birthday.S;
+      const now = DateTime.utc().setZone(timezone);
+      const dob = DateTime.fromISO(birthday);
 
-  for (const item of users.Items ?? []) {
-    console.log("User:", item.firstName.S, item.lastName.S);
+      return now.day === dob.day && now.month === dob.month;
+    });
 
-    const timezone = item.timezone.S;
-    let eventDate =
-      EVENT_TYPE === "birthday" ? item.birthday.S : item.anniversary.S;
+    console.log("Number of Users to process:", matchingUsers.length);
 
-    const now = DateTime.utc().setZone(timezone);
-    const dob = DateTime.fromISO(eventDate);
+    const now = DateTime.utc();
 
-    if (
-      now.hour === 9 &&
-      now.minute === 0 &&
-      now.day === dob.day &&
-      now.month === dob.month
-    ) {
+    for (const item of matchingUsers) {
+      console.log("User:", item.firstName.S, item.lastName.S);
+
       const res = await sqs.send(
         new SendMessageCommand({
           QueueUrl: QUEUE_URL,
@@ -83,5 +86,8 @@ export const handler = async () => {
       );
       console.log("SQS Send Result:", res);
     }
+  } catch (err) {
+    console.error("Error processing users:", err);
+    throw err;
   }
 };
